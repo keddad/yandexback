@@ -43,7 +43,7 @@ def grouper(iterable, n, fillvalue=None):
     args = [iter(iterable)] * n
     return itertools.zip_longest(*args, fillvalue=fillvalue)
 
-def db_time_to_api(l: List[WorkHours]) -> List[str]:
+def datetime_to_hours(l: List[WorkHours]) -> List[str]:
     answ = []
 
     for a, b in grouper(sorted(list(map(lambda x: x.hours.strftime("%H:%M"), l))), 2):

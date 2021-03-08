@@ -11,6 +11,7 @@ class Courier(Base):
 
     regions = relationship("Region")
     hours = relationship("WorkHours")
+    orders = relationship("Order")
 
 
 class Order(Base):
@@ -18,7 +19,9 @@ class Order(Base):
     id = Column(Integer, primary_key=True)
     weight = Column(Integer)
     region = Column(Integer)
-    state = Column(String) # pending, processing, done
+    taken = Column(DateTime)
+    done = Column(DateTime)
+    courier_id = Column(Integer, ForeignKey("couriers.id"))
     hours = relationship("DeliveryHours")
 
 
@@ -29,6 +32,7 @@ class Region(Base):
 
     courier_id = Column(Integer, ForeignKey("couriers.id"))
 
+
 class WorkHours(Base):
     __tablename__ = "workhours"
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -36,10 +40,10 @@ class WorkHours(Base):
     courier_id = Column(Integer, ForeignKey("couriers.id"))
     hours = Column(DateTime)
 
+
 class DeliveryHours(Base):
     __tablename__ = "delhours"
     id = Column(Integer, primary_key=True, autoincrement=True)
 
     courier_id = Column(Integer, ForeignKey("orders.id"))
     hours = Column(DateTime)
-

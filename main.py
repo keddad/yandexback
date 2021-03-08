@@ -10,7 +10,7 @@ from starlette.responses import JSONResponse
 import models
 import schemas
 from database import LocalSession, engine
-from utils import db_time_to_api, hours_to_datetime, type_to_weight, weight_to_type
+from utils import datetime_to_hours, hours_to_datetime, type_to_weight, weight_to_type
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -26,11 +26,13 @@ def get_db():
         db.close()
 
 # @app.exception_handler(RequestValidationError)
+
+
 async def validation_exception_handler(request: Request, exc):
     if "/couriers/" in request.url.path and request.method == "POST":
         broken_dolls = []
 
-        for p_courier in (await request.json())["data"]: # wtf
+        for p_courier in (await request.json())["data"]:  # wtf
             try:
                 schemas.CourierItem(**p_courier)
             except pydantic.ValidationError:
@@ -54,9 +56,30 @@ async def couriers_post(data: schemas.CouriersPostRequest, session: Session = De
 
     return {"couriers": [{"id", a.courier_id} for a in data.data]}
 
+
+@app.patch("/couriers/{courier_id}")
+async def couriers_patch(data: schemas.PatchCourierItem, courier_id: int, session: Session = Depends(get_db)):
+    # TODO Check if some orders are vacant
+
+    courier: models.Courier = session.query(models.Courier).filter(
+        models.Courier.id == courier_id).first()
+
+    if data.working_hours:
+        courier.hours = [models.WorkHours(
+            hours=x) for x in hours_to_datetime(data.working_hours)]
+    if data.courier_type:
+        courier.max_w = type_to_weight(data.working_hours)
+    if data.regions:
+        courier.regions = [models.Region(region=x) for x in data.regions]
+
+    session.merge(courier)
+    session.commit()
+
+
 @app.get("/couriers/{courier_id}")
 async def couriers_get(courier_id: int, session: Session = Depends(get_db)):
-    courier: models.Courier = session.query(models.Courier).filter(models.Courier.id == courier_id).first()
+    courier: models.Courier = session.query(models.Courier).filter(
+        models.Courier.id == courier_id).first()
 
     if not courier:
         raise HTTPException(status_code=400)
@@ -65,8 +88,22 @@ async def couriers_get(courier_id: int, session: Session = Depends(get_db)):
         "courier_id": courier_id,
         "courier_type": weight_to_type(courier.max_w),
         "regions": [r.region for r in courier.regions],
-        "working_hours": db_time_to_api(courier.hours)
+        "working_hours": datetime_to_hours(courier.hours)
     }
+
+
+@app.post("/orders", status_code=201)
+async def orders_post(data: schemas.OrdersPostRequest, session: Session = Depends(get_db)):
+    for rd in data.data:
+        order = models.Order(id=rd.order_id,
+                             weight=rd.weight,
+                             region=rd.region,
+                             hours=[models.DeliveryHours(hours=x) for x in hours_to_datetime(rd.delivery_hours)])
+        session.add(order)
+
+    session.commit()
+
+    return {"orders": [{"id", a.order_id} for a in data.data]}
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
