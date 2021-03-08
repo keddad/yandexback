@@ -1,0 +1,18 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+sqlalchemy = "*"
+fastapi = "*"
+uvicorn = "*"
+psycopg2 = "*"
+
+[dev-packages]
+rope = "*"
+autopep8 = "*"
+pylint = "*"
+
+[requires]
+python_version = "3.9"
