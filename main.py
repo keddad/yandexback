@@ -25,20 +25,32 @@ def get_db():
     finally:
         db.close()
 
-# @app.exception_handler(RequestValidationError)
 
-
+@app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc):
+    body = exc.body  # https://github.com/tiangolo/fastapi/issues/1909
+
     if "/couriers/" in request.url.path and request.method == "POST":
         broken_dolls = []
 
-        for p_courier in (await request.json())["data"]:  # wtf
+        for p_courier in body["data"]:
             try:
                 schemas.CourierItem(**p_courier)
             except pydantic.ValidationError:
-                broken_dolls.append(p_courier["id"])
+                broken_dolls.append(p_courier["courier_id"])
 
-        return JSONResponse(content={"validation_error": [{"id", x} for x in broken_dolls]}, status_code=400)
+        return JSONResponse(content={"validation_error": {"couriers": {"id": x for x in broken_dolls}}}, status_code=400)
+
+    elif "/orders/" in request.url.path and request.method == "POST":
+        broken_orders = []
+
+        for rd in body["data"]:
+            try:
+                schemas.OrderItem(**rd)
+            except pydantic.ValidationError:
+                broken_orders.append(rd["order_id"])
+
+        return JSONResponse(content={"validation_error": {"orders": {"id": x for x in broken_orders}}}, status_code=400)
 
 
 @app.post("/couriers/", status_code=201)

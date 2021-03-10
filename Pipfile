@@ -8,6 +8,7 @@ sqlalchemy = "*"
 fastapi = "*"
 uvicorn = "*"
 psycopg2 = "*"
+requests = "*"
 
 [dev-packages]
 rope = "*"
