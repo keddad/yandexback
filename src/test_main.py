@@ -127,3 +127,14 @@ class TestCourierPatch:
         )
 
         assert response.status_code == 400
+
+class TestOrdersAssign:
+    @pytest.mark.parametrize("c_id,exp_res", [(1, [{"id": 2}]), (2, [{"id": 1}, {"id": 2}])])
+    def test_assign(self, filled_client, c_id, exp_res):
+        response = filled_client.post(
+            "/orders/assign",
+            json={"courier_id": c_id}
+        )
+
+        assert response.status_code == 200
+        assert response.json()["orders"] == exp_res

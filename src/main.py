@@ -1,3 +1,4 @@
+from datetime import datetime
 from os import stat
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
@@ -13,7 +14,7 @@ from starlette.responses import JSONResponse, Response
 from . import models
 from . import schemas
 from .database import LocalSession, engine
-from .utils import time_to_hours, hours_to_time, type_to_weight, weight_to_type
+from .utils import time_to_hours, hours_to_time, type_to_weight, weight_to_type, filter_time_orders
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -144,7 +145,19 @@ async def assign(data: schemas.AssignPostRequest, session: Session = Depends(get
     possible_orders = session.query(models.Order).filter(models.Order.taken == None).filter(
         models.Order.weight <= courier.max_w).filter(models.Order.region.in_([x.region for x in courier.regions])).all()
 
-    print(possible_orders)
+    orders_to_take = filter_time_orders(courier, possible_orders)
+    assign_time = datetime.now()
+
+    for o in orders_to_take:
+        o.taken = assign_time
+        o.courier_id = data.courier_id
+
+    session.commit()
+
+    if orders_to_take:
+        return {"orders": [{"id": a.id} for a in orders_to_take], "assign_time": assign_time}
+    else:
+        return {"orders": []}
 
 
 if __name__ == "__main__":

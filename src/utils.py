@@ -4,7 +4,7 @@ from typing import List
 
 from sqlalchemy.ext.declarative import api
 
-from .models import WorkHours
+from .models import Order, WorkHours, Courier
 
 
 def type_to_weight(type: str) -> int:
@@ -51,3 +51,21 @@ def time_to_hours(l: List[WorkHours]) -> List[str]:
         answ.append(f"{a}-{b}")
 
     return answ
+
+
+def match_times(a: List[time], b: list[time]):
+    for a_s, a_e in grouper(a, 2):
+        for b_s, b_e in grouper(b, 2):
+            if a_s <= b_s <= a_e or a_s <= b_e <= a_e or (b_s <= a_s and a_e <= b_e):
+                return True
+    return False
+
+
+def filter_time_orders(courier: Courier, orders: List[Order]) -> List[Order]:
+    out = []
+
+    for o in orders:
+        if match_times(sorted([x.hours for x in courier.hours]), sorted([x.hours for x in o.hours])):
+            out.append(o)
+
+    return out

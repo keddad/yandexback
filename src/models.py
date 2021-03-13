@@ -1,4 +1,4 @@
-from sqlalchemy import Column, ForeignKey, Integer, String, Time
+from sqlalchemy import Column, ForeignKey, Integer, String, Time, DateTime
 from sqlalchemy.orm import relationship
 
 from .database import Base
@@ -19,8 +19,8 @@ class Order(Base):
     id = Column(Integer, primary_key=True)
     weight = Column(Integer)
     region = Column(Integer)
-    taken = Column(Time)
-    done = Column(Time)
+    taken = Column(DateTime)
+    done = Column(DateTime)
     courier_id = Column(Integer, ForeignKey("couriers.id"))
     hours = relationship("DeliveryHours")
 
