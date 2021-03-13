@@ -1,10 +1,10 @@
 import itertools
-from datetime import datetime
+from datetime import time, datetime
 from typing import List
 
 from sqlalchemy.ext.declarative import api
 
-from models import WorkHours
+from .models import WorkHours
 
 
 def type_to_weight(type: str) -> int:
@@ -27,12 +27,12 @@ def weight_to_type(weight: int) -> str:
     return d[weight]
 
 
-def hours_to_datetime(h: List[str]) -> List[datetime]:
+def hours_to_time(h: List[str]) -> List[time]:
     times = []
 
     for rng in h:
         for el in rng.split("-"):
-            times.append(datetime.strptime(el, "%H:%M"))
+            times.append(datetime.strptime(el, "%H:%M").time())
 
     return times
 
@@ -43,10 +43,11 @@ def grouper(iterable, n, fillvalue=None):
     args = [iter(iterable)] * n
     return itertools.zip_longest(*args, fillvalue=fillvalue)
 
-def datetime_to_hours(l: List[WorkHours]) -> List[str]:
+
+def time_to_hours(l: List[WorkHours]) -> List[str]:
     answ = []
 
     for a, b in grouper(sorted(list(map(lambda x: x.hours.strftime("%H:%M"), l))), 2):
         answ.append(f"{a}-{b}")
-        
+
     return answ

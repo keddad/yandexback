@@ -9,6 +9,7 @@ fastapi = "*"
 uvicorn = "*"
 psycopg2 = "*"
 requests = "*"
+pytest = "*"
 
 [dev-packages]
 rope = "*"

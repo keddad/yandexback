@@ -1,7 +1,7 @@
-from sqlalchemy import Column, ForeignKey, Integer, String, DateTime
+from sqlalchemy import Column, ForeignKey, Integer, String, Time
 from sqlalchemy.orm import relationship
 
-from database import Base
+from .database import Base
 
 
 class Courier(Base):
@@ -19,15 +19,15 @@ class Order(Base):
     id = Column(Integer, primary_key=True)
     weight = Column(Integer)
     region = Column(Integer)
-    taken = Column(DateTime)
-    done = Column(DateTime)
+    taken = Column(Time)
+    done = Column(Time)
     courier_id = Column(Integer, ForeignKey("couriers.id"))
     hours = relationship("DeliveryHours")
 
 
 class Region(Base):
     __tablename__ = "regions"
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     region = Column(Integer)
 
     courier_id = Column(Integer, ForeignKey("couriers.id"))
@@ -38,7 +38,7 @@ class WorkHours(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
 
     courier_id = Column(Integer, ForeignKey("couriers.id"))
-    hours = Column(DateTime)
+    hours = Column(Time)
 
 
 class DeliveryHours(Base):
@@ -46,4 +46,4 @@ class DeliveryHours(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
 
     courier_id = Column(Integer, ForeignKey("orders.id"))
-    hours = Column(DateTime)
+    hours = Column(Time)
