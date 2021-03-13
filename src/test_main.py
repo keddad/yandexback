@@ -10,13 +10,17 @@ from sqlalchemy.orm import sessionmaker
 TEST_DB = "sqlite://"
 EXAMPLE_COURIERS = [({"data": [{"courier_id": 1, "courier_type": "foot", "regions": [1, 2, 32], "working_hours": ["09:00-18:00"]}]},
                      {"couriers": [{"id": 1}]}),
-                    ({"data": [{"courier_id": 2, "courier_type": "bike", "regions": [1, 3, 12], "working_hours": ["09:00-18:00", "04:00-08:00"]}, {"courier_id": 3, "courier_type": "car", "regions": [1, 2, 4, 5, 7, 12], "working_hours": ["09:00-18:00", "04:00-08:00"]}]},
-                     {"couriers": [{"id": 2}, {"id": 3}]})]
+                    ({"data": [{"courier_id": 2, "courier_type": "bike", "regions": [1, 3, 12], "working_hours": ["09:00-18:00", "04:00-08:00"]}, {"courier_id": 3, "courier_type": "bike", "regions": [1, 2, 4, 5, 7, 12], "working_hours": ["09:00-18:00", "04:00-08:00"]}]},
+                     {"couriers": [{"id": 2}, {"id": 3}]}),
+                    ({"data": [{"courier_id": 4, "courier_type": "car", "regions": [1, 2, 3, 4, 5, 6, 32], "working_hours": ["09:00-18:00"]}]},
+                     {"couriers": [{"id": 4}]})]
 
 EXAMPLE_ORDERS = [({"data": [{"order_id": 1, "weight": 0.23, "region": 12, "delivery_hours": ["09:00-18:00"]}]},
                    {"orders": [{"id": 1}]}),
                   ({"data": [{"order_id": 2, "weight": 2.3, "region": 1, "delivery_hours": ["09:00-18:00"]}, {"order_id": 3, "weight": 23, "region": 3, "delivery_hours": ["04:00-05:00"]}]},
-                   {"orders": [{"id": 2}, {"id": 3}]})]
+                   {"orders": [{"id": 2}, {"id": 3}]}),
+                  ({"data": [{"order_id": 4, "weight": 43, "region": 2, "delivery_hours": ["09:00-18:00"]}]},
+                   {"orders": [{"id": 4}]})]
 
 
 def get_db_override():
@@ -61,6 +65,18 @@ def filled_client(client):
         )
 
     return client
+
+
+@pytest.fixture
+def filled_client_assigned(filled_client):
+    for data in EXAMPLE_COURIERS:
+        for c in data[0]["data"]:
+            filled_client.post(
+                "/orders/assign",
+                json={"courier_id": c["courier_id"]}
+            )
+
+    return filled_client
 
 
 class TestCourierPost:
@@ -118,7 +134,8 @@ class TestCourierPatch:
             json={"courier_type": "bike", "regions": [1, 2]}
         )
 
-        assert response.json() == {"courier_type": "bike", "regions": [1, 2], "courier_id": 1, "working_hours": ["09:00-18:00"]}
+        assert response.json() == {"courier_type": "bike", "regions": [
+            1, 2], "courier_id": 1, "working_hours": ["09:00-18:00"]}
 
     def test_invalid_data(self, filled_client):
         response = filled_client.patch(
@@ -128,8 +145,21 @@ class TestCourierPatch:
 
         assert response.status_code == 400
 
+    @pytest.mark.parametrize("change", [{"regions": [69]}, {"working_hours": ["00:00-00:10"]}, {"courier_type": "foot"}])
+    def test_remove_oders(self, filled_client_assigned, change):
+        filled_client_assigned.patch(
+            "/couriers/4",
+            json=change
+        )
+
+        o_4 = filled_client_assigned.get("/orders/4").json()
+
+        assert o_4["taken"] == None
+        assert o_4["courier_id"] == None
+
+
 class TestOrdersAssign:
-    @pytest.mark.parametrize("c_id,exp_res", [(1, [{"id": 2}]), (2, [{"id": 1}, {"id": 2}])])
+    @pytest.mark.parametrize("c_id,exp_res", [(1, [{"id": 2}]), (2, [{"id": 1}, {"id": 2}]), (4, [{"id": 2}, {"id": 4}])])
     def test_assign(self, filled_client, c_id, exp_res):
         response = filled_client.post(
             "/orders/assign",

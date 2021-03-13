@@ -84,13 +84,35 @@ async def couriers_patch(data: schemas.PatchCourierItem, courier_id: int, sessio
     courier: models.Courier = session.query(models.Courier).filter(
         models.Courier.id == courier_id).first()
 
+    broken_orders = set()
+
     if data.working_hours:
         courier.hours = [models.WorkHours(
             hours=x) for x in hours_to_time(data.working_hours)]
+
+        possible_orders = filter_time_orders(courier, courier.orders)
+
+        for o in courier.orders:
+            if o not in possible_orders and not o.done:
+                broken_orders.add(o)
+
     if data.courier_type:
         courier.max_w = type_to_weight(data.courier_type)
+
+        for o in courier.orders:
+            if o.weight > courier.max_w and not o.done:
+                broken_orders.add(o)
+
     if data.regions:
         courier.regions = [models.Region(region=x) for x in data.regions]
+
+        for o in courier.orders:
+            if o.region not in [x.region for x in courier.regions] and not o.done:
+                broken_orders.add(o)
+
+    for el in broken_orders:
+        el.courier_id = None
+        el.taken = None
 
     session.merge(courier)
     session.commit()
@@ -101,7 +123,6 @@ async def couriers_patch(data: schemas.PatchCourierItem, courier_id: int, sessio
         "regions": [r.region for r in courier.regions],
         "working_hours": time_to_hours(courier.hours)
     }
-
 
 
 @app.get("/couriers/{courier_id}")
@@ -117,6 +138,21 @@ async def couriers_get(courier_id: int, session: Session = Depends(get_db)):
         "courier_type": weight_to_type(courier.max_w),
         "regions": [r.region for r in courier.regions],
         "working_hours": time_to_hours(courier.hours)
+    }
+
+
+@app.get("/orders/{order_id}")  # for testing
+async def orders_get(order_id: int, session: Session = Depends(get_db)):
+    order: models.Order = session.query(models.Order).filter(
+        models.Order.id == order_id).first()
+
+    return {
+        "order_id": order.id,
+        "weight": order.weight,
+        "region": order.region,
+        "taken": order.taken,
+        "done": order.done,
+        "courier_id": order.courier_id
     }
 
 
