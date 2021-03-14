@@ -10,6 +10,7 @@ uvicorn = "*"
 psycopg2 = "*"
 requests = "*"
 pytest = "*"
+python-dateutil = "*"
 
 [dev-packages]
 rope = "*"

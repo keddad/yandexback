@@ -30,7 +30,6 @@ class PatchCourierItem(ForbidAdditioalBase):
     courier_type: Optional[str]
     regions: Optional[List[int]]
     working_hours: Optional[List[str]]
-    
 
 
 class CouriersPostRequest(ForbidAdditioalBase):
@@ -39,3 +38,9 @@ class CouriersPostRequest(ForbidAdditioalBase):
 
 class AssignPostRequest(ForbidAdditioalBase):
     courier_id: int
+
+
+class OrderCompletePost(ForbidAdditioalBase):
+    courier_id: int
+    order_id: int
+    complete_time: str

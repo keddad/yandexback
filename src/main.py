@@ -1,29 +1,32 @@
 from datetime import datetime
-from os import stat
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.routing import APIRouter
 import pydantic
 from sqlalchemy.orm import Session
-from sqlalchemy.sql.functions import mode
+from sqlalchemy import create_engine, engine
 import uvicorn
 from sqlalchemy.orm.session import sessionmaker
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
+import dateutil.parser
 
 from . import models
 from . import schemas
-from .database import LocalSession, engine
 from .utils import time_to_hours, hours_to_time, type_to_weight, weight_to_type, filter_time_orders
-
-models.Base.metadata.create_all(bind=engine)
-
-router = APIRouter()
 
 app = FastAPI()
 
 
 def get_db():
+    from .database import LocalSession, engine  # Костыль для тестов
+    DATABASE_URL = "postgresql+psycopg2://postgres:password@localhost:5432/"
+
+    engine = create_engine(DATABASE_URL)
+    LocalSession = sessionmaker(bind=engine)
+
+    models.Base.metadata.create_all(bind=engine)
+
     db = LocalSession()
 
     try:
@@ -34,30 +37,33 @@ def get_db():
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc):
-    body = exc.body  # https://github.com/tiangolo/fastapi/issues/1909
+    try:
+        body = exc.body  # https://github.com/tiangolo/fastapi/issues/1909
 
-    if "/couriers" in request.url.path and request.method == "POST":
-        broken_dolls = []
+        if "/couriers" in request.url.path and request.method == "POST":
+            broken_dolls = []
 
-        for p_courier in body["data"]:
-            try:
-                schemas.CourierItem(**p_courier)
-            except pydantic.ValidationError:
-                broken_dolls.append(p_courier["courier_id"])
+            for p_courier in body["data"]:
+                try:
+                    schemas.CourierItem(**p_courier)
+                except pydantic.ValidationError:
+                    broken_dolls.append(p_courier["courier_id"])
 
-        return JSONResponse(content={"validation_error": {"couriers": [{"id": x} for x in broken_dolls]}}, status_code=400)
+            return JSONResponse(content={"validation_error": {"couriers": [{"id": x} for x in broken_dolls]}}, status_code=400)
 
-    elif "/orders" in request.url.path and request.method == "POST":
-        broken_orders = []
+        elif "/orders" in request.url.path and request.method == "POST":
+            broken_orders = []
 
-        for rd in body["data"]:
-            try:
-                schemas.OrderItem(**rd)
-            except pydantic.ValidationError:
-                broken_orders.append(rd["order_id"])
+            for rd in body["data"]:
+                try:
+                    schemas.OrderItem(**rd)
+                except pydantic.ValidationError:
+                    broken_orders.append(rd["order_id"])
 
-        return JSONResponse(content={"validation_error": {"orders": [{"id": x} for x in broken_orders]}}, status_code=400)
-    else:
+            return JSONResponse(content={"validation_error": {"orders": [{"id": x} for x in broken_orders]}}, status_code=400)
+        else:
+            return Response(status_code=400)
+    except:
         return Response(status_code=400)
 
 
@@ -79,10 +85,11 @@ async def couriers_post(data: schemas.CouriersPostRequest, session: Session = De
 
 @app.patch("/couriers/{courier_id}")
 async def couriers_patch(data: schemas.PatchCourierItem, courier_id: int, session: Session = Depends(get_db)):
-    # TODO Check if some orders are vacant
-
     courier: models.Courier = session.query(models.Courier).filter(
         models.Courier.id == courier_id).first()
+
+    if not courier:
+        raise HTTPException(status_code=400)
 
     broken_orders = set()
 
@@ -194,6 +201,21 @@ async def assign(data: schemas.AssignPostRequest, session: Session = Depends(get
         return {"orders": [{"id": a.id} for a in orders_to_take], "assign_time": assign_time}
     else:
         return {"orders": []}
+
+
+@app.post("/orders/complete")
+async def orders_complete(data: schemas.OrderCompletePost, session: Session = Depends(get_db)):
+    order = session.query(models.Order).filter(
+        models.Order.id == data.order_id).first()
+
+    if not order or not order.taken or order.courier_id != data.courier_id:
+        raise HTTPException(status_code=400)
+
+    order.done = dateutil.parser.parse(data.complete_time)
+
+    session.commit()
+
+    return {"order_id": order.id}
 
 
 if __name__ == "__main__":

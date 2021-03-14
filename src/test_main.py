@@ -168,3 +168,16 @@ class TestOrdersAssign:
 
         assert response.status_code == 200
         assert response.json()["orders"] == exp_res
+
+class TestOrdersComplete:
+    def test_complete(self, filled_client_assigned):
+        response = filled_client_assigned.post(
+            "/orders/complete",
+            json={"courier_id": 4, "order_id": 4, "complete_time": "2021-01-10T10:33:01.42Z"}
+        )
+
+        assert response.json()["order_id"] == 4
+
+        order = filled_client_assigned.get("/orders/4").json()
+
+        assert "2021-01-10T10:33:01.42" in order["done"]
