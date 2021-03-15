@@ -1,0 +1,19 @@
+version: "3.9"
+
+volumes:
+  pg_yad:
+
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    restart: always
+  postgres:
+    image: postgres
+    restart: always
+    environment:
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_USER=postgres
+    volumes:
+      - pg_yad:/var/lib/postgresql/data

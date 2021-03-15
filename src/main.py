@@ -19,7 +19,7 @@ app = FastAPI()
 
 
 def get_db():
-    DATABASE_URL = "postgresql+psycopg2://postgres:password@localhost:5432/"
+    DATABASE_URL = "postgresql+psycopg2://postgres:password@postgres:5432/"
 
     engine = create_engine(DATABASE_URL)
     LocalSession = sessionmaker(bind=engine)
