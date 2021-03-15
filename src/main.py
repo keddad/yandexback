@@ -13,13 +13,12 @@ import dateutil.parser
 
 from . import models
 from . import schemas
-from .utils import time_to_hours, hours_to_time, type_to_weight, weight_to_type, filter_time_orders
+from .utils import earnings, time_to_hours, hours_to_time, type_to_weight, weight_to_type, filter_time_orders, rating
 
 app = FastAPI()
 
 
 def get_db():
-    from .database import LocalSession, engine  # Костыль для тестов
     DATABASE_URL = "postgresql+psycopg2://postgres:password@localhost:5432/"
 
     engine = create_engine(DATABASE_URL)
@@ -110,7 +109,7 @@ async def couriers_patch(data: schemas.PatchCourierItem, courier_id: int, sessio
             if o.weight > courier.max_w and not o.done:
                 broken_orders.add(o)
 
-    if data.regions:
+    if data.regions: 
         courier.regions = [models.Region(region=x) for x in data.regions]
 
         for o in courier.orders:
@@ -137,14 +136,16 @@ async def couriers_get(courier_id: int, session: Session = Depends(get_db)):
     courier: models.Courier = session.query(models.Courier).filter(
         models.Courier.id == courier_id).first()
 
-    if not courier:
+    if not courier or sum([bool(o.done) for o in courier.orders]) == 0:
         raise HTTPException(status_code=400)
 
     return {
         "courier_id": courier_id,
         "courier_type": weight_to_type(courier.max_w),
         "regions": [r.region for r in courier.regions],
-        "working_hours": time_to_hours(courier.hours)
+        "working_hours": time_to_hours(courier.hours),
+        "rating": rating(courier),
+        "earnings": earnings(courier, session)
     }
 
 

@@ -1,8 +1,12 @@
 import itertools
 from datetime import time, datetime
 from typing import List
+from statistics import mean
 
 from sqlalchemy.ext.declarative import api
+from sqlalchemy.orm import session
+from sqlalchemy.orm.session import Session
+from sqlalchemy.sql.expression import distinct
 
 from .models import Order, WorkHours, Courier
 
@@ -69,3 +73,44 @@ def filter_time_orders(courier: Courier, orders: List[Order]) -> List[Order]:
             out.append(o)
 
     return out
+
+
+def rating(c: Courier) -> int:
+    """Couldn't do it with SQL"""
+
+    reg_to_order = {}
+
+    for o in c.orders:
+        if not o.done:
+            continue
+
+        if o.region not in reg_to_order:
+            reg_to_order[o.region] = []
+
+        reg_to_order[o.region].append(o)
+
+    reg_to_time = {}
+
+    for reg, orders in reg_to_order.items():
+        orders = sorted(orders, key=lambda x: x.done)
+
+        if len(orders) == 1:
+            reg_to_time[reg] = (
+                orders[0].done - orders[0].taken).total_seconds()
+        else:
+            diffs = []
+
+            for i in range(len(orders) - 1):
+                diffs.append(
+                    (orders[i+1].done - orders[i].done).total_seconds())
+
+            reg_to_time[reg] = mean(diffs)
+
+    return (3600 - min(min(reg_to_time.values()), 3600)) / 18000
+
+
+def earnings(c: Courier, s: Session) -> int:
+    n = s.query(distinct(Order.taken)).filter(Order.courier_id == c.id).count()
+    c = {"foot": 2, "bike": 5, "car": 9}[weight_to_type(c.max_w)]
+
+    return 500 * n * c
